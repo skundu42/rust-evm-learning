@@ -11,8 +11,6 @@ What you get:
   - Supports calldata, environment opcodes, and world state for simple CALL/STATICCALL.
   - Adds CREATE/CREATE2, CALLCODE, DELEGATECALL semantics (simplified), precompile hooks (identity at 0x04), memory expansion gas, basic SSTORE gas/refunds, and call gas with 63/64 rule + stipend.
 
-This is intentionally compact and approachable. It’s designed as a learning aid and a base for extension alongside the chapters in `content/`.
-
 ## Build
 
 Ensure Rust is installed (Rust 1.70+ recommended), then:
