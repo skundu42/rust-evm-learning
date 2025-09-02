@@ -3,10 +3,12 @@ use std::env;
 
 fn parse_hex(s: &str) -> Option<Vec<u8>> {
     let s = s.strip_prefix("0x").unwrap_or(s);
-    if s.len() % 2 != 0 { return None; }
+    if s.len() % 2 != 0 {
+        return None;
+    }
     (0..s.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i+2], 16).ok())
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
         .collect()
 }
 
@@ -21,15 +23,25 @@ fn main() {
         eprintln!("Invalid hex input");
         std::process::exit(1);
     });
-    let gas = if args.len() > 2 { args[2].parse::<i128>().unwrap_or(10_000_000) } else { 10_000_000 };
-    let cfg = EvmConfig { gas_limit: gas, calldata: Vec::new(), ..EvmConfig::default() };
+    let gas = if args.len() > 2 {
+        args[2].parse::<i128>().unwrap_or(10_000_000)
+    } else {
+        10_000_000
+    };
+    let cfg = EvmConfig {
+        gas_limit: gas,
+        calldata: Vec::new(),
+        ..EvmConfig::default()
+    };
     let mut evm = Evm::new(code, cfg);
     match evm.run() {
         Ok(()) => {
             println!("pc: {}", evm.pc);
             println!("gas left: {}", evm.gas);
             println!("stack size: {}", evm.stack.len());
-            if let Some(top) = evm.stack.last() { println!("top: 0x{:x}", top); }
+            if let Some(top) = evm.stack.last() {
+                println!("top: 0x{:x}", top);
+            }
         }
         Err(e) => {
             eprintln!("Execution error: {e}");

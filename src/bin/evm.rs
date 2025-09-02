@@ -1,16 +1,17 @@
-use clap::{ArgAction, Parser, Subcommand};
-use evm_in_rust::{disasm, Account, BlockEnv, Evm, EvmConfig, World};
+use clap::{Parser, Subcommand};
+use evm_in_rust::{disasm, Account, Evm, EvmConfig, World};
 use primitive_types::{H160, U256};
 use std::collections::HashMap;
 
 #[derive(Debug, Parser)]
-#[command(name = "evm", about = "Educational EVM CLI")] 
+#[command(name = "evm", about = "Educational EVM CLI")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
 }
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
 enum Cmd {
     /// Run EVM bytecode
     Run {
@@ -20,7 +21,7 @@ enum Cmd {
         #[arg(long, default_value_t = 10_000_000)]
         gas: i128,
         /// Calldata as hex
-        #[arg(long, default_value = "0x")] 
+        #[arg(long, default_value = "0x")]
         calldata: String,
         /// Print full stack
         #[arg(long)]
@@ -75,7 +76,7 @@ enum Cmd {
         /// Hex bytecode or @file
         code: String,
         /// Calldata as hex
-        #[arg(long, default_value = "0x")] 
+        #[arg(long, default_value = "0x")]
         calldata: String,
         /// Gas limit
         #[arg(long, default_value_t = 10_000_000)]
@@ -98,14 +99,65 @@ enum Cmd {
 fn main() {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Run { code, gas, calldata, dump_stack, world, address, caller, origin, value, gas_price, coinbase, timestamp, number, block_gas_limit, chainid, basefee, dump_world } => {
-            run_cmd(&code, gas, &calldata, dump_stack, world.as_deref(), address.as_deref(), caller.as_deref(), origin.as_deref(), &value, &gas_price, coinbase.as_deref(), timestamp, number, block_gas_limit.as_deref(), chainid.as_deref(), basefee.as_deref(), dump_world)
-        }
+        Cmd::Run {
+            code,
+            gas,
+            calldata,
+            dump_stack,
+            world,
+            address,
+            caller,
+            origin,
+            value,
+            gas_price,
+            coinbase,
+            timestamp,
+            number,
+            block_gas_limit,
+            chainid,
+            basefee,
+            dump_world,
+        } => run_cmd(
+            &code,
+            gas,
+            &calldata,
+            dump_stack,
+            world.as_deref(),
+            address.as_deref(),
+            caller.as_deref(),
+            origin.as_deref(),
+            &value,
+            &gas_price,
+            coinbase.as_deref(),
+            timestamp,
+            number,
+            block_gas_limit.as_deref(),
+            chainid.as_deref(),
+            basefee.as_deref(),
+            dump_world,
+        ),
         Cmd::Disasm { code } => disasm_cmd(&code),
-        Cmd::Trace { code, calldata, gas, max_steps, world, address, caller } => trace_cmd(&code, &calldata, gas, max_steps, world.as_deref(), address.as_deref(), caller.as_deref()),
+        Cmd::Trace {
+            code,
+            calldata,
+            gas,
+            max_steps,
+            world,
+            address,
+            caller,
+        } => trace_cmd(
+            &code,
+            &calldata,
+            gas,
+            max_steps,
+            world.as_deref(),
+            address.as_deref(),
+            caller.as_deref(),
+        ),
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_cmd(
     code_arg: &str,
     gas: i128,
@@ -127,19 +179,37 @@ fn run_cmd(
 ) {
     let code = read_code_arg(code_arg);
     let calldata = parse_hex(calldata_hex).unwrap_or_else(|| die("Invalid calldata hex"));
-    let mut cfg = EvmConfig { gas_limit: gas, calldata, ..EvmConfig::default() };
+    let mut cfg = EvmConfig {
+        gas_limit: gas,
+        calldata,
+        ..EvmConfig::default()
+    };
     cfg.address = address_hex.and_then(parse_h160);
     cfg.caller = caller_hex.and_then(parse_h160);
     cfg.origin = origin_hex.and_then(parse_h160);
     cfg.value = parse_u256(value_str).unwrap_or_else(|| die("Invalid --value"));
     cfg.gas_price = parse_u256(gas_price_str).unwrap_or_else(|| die("Invalid --gas-price"));
-    if let Some(cb) = coinbase_hex.and_then(parse_h160) { cfg.block.coinbase = cb; }
-    if let Some(t) = ts { cfg.block.timestamp = t; }
-    if let Some(n) = num { cfg.block.number = n; }
-    if let Some(gl) = block_gas_limit_str.and_then(parse_u256) { cfg.block.gas_limit = gl; }
-    if let Some(cid) = chainid_str.and_then(parse_u256) { cfg.block.chain_id = cid; }
-    if let Some(bf) = basefee_str.and_then(parse_u256) { cfg.block.basefee = bf; }
-    if let Some(path) = world_path { cfg.world = Some(load_world(path)); }
+    if let Some(cb) = coinbase_hex.and_then(parse_h160) {
+        cfg.block.coinbase = cb;
+    }
+    if let Some(t) = ts {
+        cfg.block.timestamp = t;
+    }
+    if let Some(n) = num {
+        cfg.block.number = n;
+    }
+    if let Some(gl) = block_gas_limit_str.and_then(parse_u256) {
+        cfg.block.gas_limit = gl;
+    }
+    if let Some(cid) = chainid_str.and_then(parse_u256) {
+        cfg.block.chain_id = cid;
+    }
+    if let Some(bf) = basefee_str.and_then(parse_u256) {
+        cfg.block.basefee = bf;
+    }
+    if let Some(path) = world_path {
+        cfg.world = Some(load_world(path));
+    }
     let mut evm = Evm::new(code, cfg);
     match evm.run() {
         Ok(()) => {
@@ -150,7 +220,9 @@ fn run_cmd(
             println!("pc: {}", evm.pc);
             println!("gas left: {}", evm.gas);
             println!("stack size: {}", evm.stack.len());
-            if let Some(top) = evm.stack.last() { println!("top: 0x{:x}", top); }
+            if let Some(top) = evm.stack.last() {
+                println!("top: 0x{:x}", top);
+            }
             if dump_stack {
                 for (i, v) in evm.stack.iter().rev().enumerate() {
                     println!("[{}] 0x{:x}", i, v);
@@ -159,10 +231,21 @@ fn run_cmd(
             if !evm.logs.is_empty() {
                 println!("logs: {}", evm.logs.len());
             }
-            if let Some(dw) = dump_world.flatten() {
-                let json = world_to_json(evm.world.as_ref());
-                if let Some(path) = dw.strip_prefix('@') { std::fs::write(path, json).unwrap_or_else(|e| die(&format!("write world: {e}"))); }
-                else { println!("{}", json); }
+            match dump_world {
+                Some(Some(dw)) => {
+                    let json = world_to_json(evm.world.as_ref());
+                    if let Some(path) = dw.strip_prefix('@') {
+                        std::fs::write(path, json)
+                            .unwrap_or_else(|e| die(&format!("write world: {e}")));
+                    } else {
+                        println!("{}", json);
+                    }
+                }
+                Some(None) => {
+                    let json = world_to_json(evm.world.as_ref());
+                    println!("{}", json);
+                }
+                None => {}
             }
         }
         Err(e) => die(&format!("Execution error: {e}")),
@@ -176,13 +259,27 @@ fn disasm_cmd(code_arg: &str) {
     }
 }
 
-fn trace_cmd(code_arg: &str, calldata_hex: &str, gas: i128, max_steps: usize, world_path: Option<&str>, address_hex: Option<&str>, caller_hex: Option<&str>) {
+fn trace_cmd(
+    code_arg: &str,
+    calldata_hex: &str,
+    gas: i128,
+    max_steps: usize,
+    world_path: Option<&str>,
+    address_hex: Option<&str>,
+    caller_hex: Option<&str>,
+) {
     let code = read_code_arg(code_arg);
     let calldata = parse_hex(calldata_hex).unwrap_or_else(|| die("Invalid calldata hex"));
-    let mut cfg = EvmConfig { gas_limit: gas, calldata, ..EvmConfig::default() };
+    let mut cfg = EvmConfig {
+        gas_limit: gas,
+        calldata,
+        ..EvmConfig::default()
+    };
     cfg.address = address_hex.and_then(parse_h160);
     cfg.caller = caller_hex.and_then(parse_h160);
-    if let Some(path) = world_path { cfg.world = Some(load_world(path)); }
+    if let Some(path) = world_path {
+        cfg.world = Some(load_world(path));
+    }
     let mut evm = Evm::new(code, cfg);
 
     let mut steps = 0usize;
@@ -202,7 +299,10 @@ fn trace_cmd(code_arg: &str, calldata_hex: &str, gas: i128, max_steps: usize, wo
             op,
             opcode_name(op),
             evm.stack.len(),
-            evm.stack.last().map(|v| format!("0x{:x}", v)).unwrap_or_else(|| "-".to_string()),
+            evm.stack
+                .last()
+                .map(|v| format!("0x{:x}", v))
+                .unwrap_or_else(|| "-".to_string()),
             evm.gas,
         );
         if let Err(e) = evm.step() {
@@ -223,26 +323,45 @@ fn read_code_arg(arg: &str) -> Vec<u8> {
 fn parse_hex(s: &str) -> Option<Vec<u8>> {
     let s = s.trim();
     let s = s.strip_prefix("0x").unwrap_or(s);
-    if s.is_empty() { return Some(Vec::new()); }
-    if s.len() % 2 != 0 { return None; }
+    if s.is_empty() {
+        return Some(Vec::new());
+    }
+    if s.len() % 2 != 0 {
+        return None;
+    }
     (0..s.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i+2], 16).ok())
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
         .collect()
 }
 
 fn hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
-    for b in bytes { s.push_str(&format!("{:02x}", b)); }
+    for b in bytes {
+        s.push_str(&format!("{:02x}", b));
+    }
     s
 }
 
-fn die(msg: &str) -> ! { eprintln!("{}", msg); std::process::exit(1); }
+fn die(msg: &str) -> ! {
+    eprintln!("{}", msg);
+    std::process::exit(1);
+}
 
 fn halt_status(evm: &Evm) -> &'static str {
     match &evm.halted {
-        Some(h) => match h { evm_in_rust::machine::Halt::Stop => "STOP", evm_in_rust::machine::Halt::Return => "RETURN", evm_in_rust::machine::Halt::Revert => "REVERT" },
-        None => if evm.pc >= evm.code.len() { "EOF" } else { "RUNNING" },
+        Some(h) => match h {
+            evm_in_rust::machine::Halt::Stop => "STOP",
+            evm_in_rust::machine::Halt::Return => "RETURN",
+            evm_in_rust::machine::Halt::Revert => "REVERT",
+        },
+        None => {
+            if evm.pc >= evm.code.len() {
+                "EOF"
+            } else {
+                "RUNNING"
+            }
+        }
     }
 }
 
@@ -288,9 +407,9 @@ fn opcode_name(op: u8) -> &'static str {
         LOG2 => "LOG2",
         LOG3 => "LOG3",
         LOG4 => "LOG4",
-        x if x >= PUSH1 && x <= PUSH32 => "PUSHn",
-        x if x >= DUP1 && x <= DUP16 => "DUPn",
-        x if x >= SWAP1 && x <= SWAP16 => "SWAPn",
+        x if (PUSH1..=PUSH32).contains(&x) => "PUSHn",
+        x if (DUP1..=DUP16).contains(&x) => "DUPn",
+        x if (SWAP1..=SWAP16).contains(&x) => "SWAPn",
         _ => "?",
     }
 }
@@ -320,16 +439,26 @@ fn world_to_json(world: Option<&World>) -> String {
 
 fn parse_h160(s: &str) -> Option<H160> {
     let b = parse_hex(s)?;
-    if b.len() != 20 { return None; }
+    if b.len() != 20 {
+        return None;
+    }
     Some(H160::from_slice(&b))
 }
 
 fn parse_u256(s: &str) -> Option<U256> {
     let s = s.trim();
     if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
-        let b = parse_hex(&format!("0x{}", hex))?;
+        // Accept odd-length hex (e.g., 0x0) by padding a leading zero nibble
+        let padded = if hex.len() % 2 == 1 {
+            format!("0x0{}", hex)
+        } else {
+            format!("0x{}", hex)
+        };
+        let b = parse_hex(&padded)?;
         let mut buf = [0u8; 32];
-        if b.len() > 32 { return None; }
+        if b.len() > 32 {
+            return None;
+        }
         buf[32 - b.len()..].copy_from_slice(&b);
         Some(U256::from_big_endian(&buf))
     } else {
@@ -339,18 +468,32 @@ fn parse_u256(s: &str) -> Option<U256> {
 
 fn load_world(path: &str) -> World {
     let txt = std::fs::read_to_string(path).unwrap_or_else(|e| die(&format!("read world: {e}")));
-    let v: serde_json::Value = serde_json::from_str(&txt).unwrap_or_else(|e| die(&format!("parse world json: {e}")));
-    let mut world = World { accounts: HashMap::new() };
+    let v: serde_json::Value =
+        serde_json::from_str(&txt).unwrap_or_else(|e| die(&format!("parse world json: {e}")));
+    let mut world = World {
+        accounts: HashMap::new(),
+    };
     if let Some(accs) = v.get("accounts").and_then(|x| x.as_object()) {
         for (k, val) in accs {
             let addr = parse_h160(k).unwrap_or_else(|| die("invalid account key"));
             let mut a = Account::default();
-            if let Some(bal) = val.get("balance").and_then(|x| x.as_str()).and_then(parse_u256) { a.balance = bal; }
-            if let Some(code_str) = val.get("code").and_then(|x| x.as_str()) { a.code = parse_hex(code_str).unwrap_or_else(|| die("invalid account.code")); }
+            if let Some(bal) = val
+                .get("balance")
+                .and_then(|x| x.as_str())
+                .and_then(parse_u256)
+            {
+                a.balance = bal;
+            }
+            if let Some(code_str) = val.get("code").and_then(|x| x.as_str()) {
+                a.code = parse_hex(code_str).unwrap_or_else(|| die("invalid account.code"));
+            }
             if let Some(stor) = val.get("storage").and_then(|x| x.as_object()) {
                 for (sk, sv) in stor {
                     let k = parse_u256(sk).unwrap_or_else(|| die("invalid storage key"));
-                    let v = sv.as_str().and_then(parse_u256).unwrap_or_else(|| die("invalid storage value"));
+                    let v = sv
+                        .as_str()
+                        .and_then(parse_u256)
+                        .unwrap_or_else(|| die("invalid storage value"));
                     a.storage.insert(k, v);
                 }
             }

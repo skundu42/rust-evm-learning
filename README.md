@@ -1,4 +1,4 @@
-# evm-from-scratch (Rust)
+# EVM in Rust
 
 This folder contains a minimal, educational EVM implemented in Rust.
 
