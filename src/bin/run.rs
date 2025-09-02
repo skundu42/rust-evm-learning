@@ -1,4 +1,4 @@
-use evm_from_scratch::{Evm, EvmConfig};
+use evm_in_rust::{Evm, EvmConfig};
 use std::env;
 
 fn parse_hex(s: &str) -> Option<Vec<u8>> {
@@ -22,7 +22,7 @@ fn main() {
         std::process::exit(1);
     });
     let gas = if args.len() > 2 { args[2].parse::<i128>().unwrap_or(10_000_000) } else { 10_000_000 };
-    let cfg = EvmConfig { gas_limit: gas };
+    let cfg = EvmConfig { gas_limit: gas, calldata: Vec::new(), ..EvmConfig::default() };
     let mut evm = Evm::new(code, cfg);
     match evm.run() {
         Ok(()) => {
@@ -37,4 +37,3 @@ fn main() {
         }
     }
 }
-

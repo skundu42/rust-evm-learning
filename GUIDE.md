@@ -13,9 +13,10 @@ Use `cargo run --bin evm-run -- <hex>` to execute bytecode.
 - Stack: 1024-item limit of 256-bit words (`U256`). Arithmetic and logic operate on stack top items.
 - Memory: Byte-addressed, zero-initialized, expands on demand. `MSTORE`/`MLOAD` work with 32-byte words (big-endian).
 - Storage: Simple key-value map `U256 -> U256` for `SLOAD`/`SSTORE`.
-- Gas: Integer budget decremented per operation. Errors on negative gas.
+- Gas: Integer budget decremented per operation. Includes rough memory expansion cost and more realistic `SSTORE` costs/refunds.
 - PC: Program counter (byte index into `code`).
 - Jumpdest scanning: Valid jump targets are precomputed (only `JUMPDEST` bytes are allowed).
+ - World state (optional): Accounts with balance, code, storage. Enables environment opcodes and cross-contract calls.
 
 ## CLI Basics
 
@@ -94,6 +95,7 @@ cargo run --bin evm-run -- <hex>
   - `PUSH1 0x2a; PUSH1 0x01; SSTORE; PUSH1 0x01; SLOAD`
   - Hex: `0x602a600155600154`
   - Expected top: `0x2a`
+ - Gas (simplified realistic): 20_000 for 0→nonzero, 5_000 for nonzero→0 (records 15_000 refund), 2_900 for nonzero→nonzero.
 
 ### Control Flow: JUMP (0x56), JUMPI (0x57), JUMPDEST (0x5b)
 - Only positions containing `JUMPDEST` are valid jump targets.
@@ -118,6 +120,21 @@ cargo run --bin evm-run -- <hex>
   - `PUSH32 0x...deadbeef; PUSH1 0; MSTORE; PUSH1 0; PUSH1 32; SHA3`
   - Sketch hex: `0x7f<32B>6000526000602020` (fill `<32B>` with the 32-byte value)
 
+### Calls and Creation (subset)
+
+- CALL, STATICCALL, CALLCODE, DELEGATECALL supported with simplified gas and value semantics.
+- CALL uses the 63/64 rule for forwarded gas and adds a 2300 stipend if value > 0.
+- CALLCODE/DELEGATECALL execute code from another account while keeping the caller’s storage/address context.
+- CREATE/CREATE2 deploy contracts by running initcode (from memory); the RETURN data becomes the deployed code.
+- Address derivation:
+  - CREATE: Keccak(RLP([sender, nonce])) last 20 bytes
+  - CREATE2: Keccak(0xff || sender || salt || Keccak(initcode)) last 20 bytes
+
+### Precompiles
+
+- Identity precompile at 0x0000000000000000000000000000000000000004 is implemented (returns input).
+- Other precompiles are placeholders for now.
+
 ### DUP1..DUP16 (0x80..0x8f) and SWAP1..SWAP16 (0x90..0x9f)
 - DUPn: duplicate the nth stack item (1=top) to top.
 - SWAPn: swap top with nth+1 item.
@@ -129,7 +146,12 @@ cargo run --bin evm-run -- <hex>
 
 ## Gas Model (Simplified)
 
-Gas is decremented per opcode using rough costs, sufficient for learning and sanity checks. Running out of gas results in an error and halts execution. Adjust gas values in `machine.rs` if you need closer realism.
+Gas is decremented per opcode with:
+- Memory expansion cost: 3 gas per 32-byte word plus quadratic term (words^2/512) when memory grows.
+- Copy operations charge per 32-byte word.
+- CALL base costs and 63/64 rule, plus stipend on value transfer.
+- SSTORE costs/refunds as above.
+Running out of gas results in an error and halts execution. Costs are still educational approximations, not consensus-accurate.
 
 ## Errors and Edge Cases
 
@@ -153,14 +175,14 @@ Gas is decremented per opcode using rough costs, sufficient for learning and san
 ## Extending the EVM
 
 - Add opcodes: extend the `match` in `Evm::step` and update gas.
-- Improve accuracy: refine gas costs, implement additional state/environment (block data, call context).
-- Precompiles: out of scope here, but you can model them by intercepting addresses.
+- Improve accuracy: refine gas (cold access, refunds), implement full call semantics, and more environment opcodes.
+- Precompiles: extend hooks to support `sha256`, `ripemd160`, bn128 ops, `blake2f`, etc.
 
 ## Limitations
 
 - Educational focus; not consensus-accurate.
-- No account model or transaction execution environment.
-- No call-related opcodes or external code execution.
+- World state and gas are approximations (no cold/warm access, incomplete refunds, etc.).
+- Precompiles beyond identity are not implemented.
 
 ---
 

@@ -1,1 +1,1 @@
-/Users/sk/dev/evm-from-scratch-book/rust/target/debug/evm-run: /Users/sk/dev/evm-from-scratch-book/rust/src/bin/run.rs /Users/sk/dev/evm-from-scratch-book/rust/src/lib.rs /Users/sk/dev/evm-from-scratch-book/rust/src/machine.rs /Users/sk/dev/evm-from-scratch-book/rust/src/opcodes.rs
+/Users/sk/dev/evm-in-rust/target/debug/evm-run: /Users/sk/dev/evm-in-rust/src/bin/run.rs /Users/sk/dev/evm-in-rust/src/disasm.rs /Users/sk/dev/evm-in-rust/src/lib.rs /Users/sk/dev/evm-in-rust/src/machine.rs /Users/sk/dev/evm-in-rust/src/opcodes.rs
